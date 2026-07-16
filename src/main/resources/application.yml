@@ -1,0 +1,21 @@
+spring:
+  application:
+    name: brandpilot-backend-rebuild
+
+  datasource:
+    url: "jdbc:mysql://localhost:3306/brandpilot?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
+    username: brandpilot_app
+    password: ${DB_PASSWORD}
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+
+  flyway:
+    enabled: true
