@@ -2,7 +2,7 @@
 
 > 상태: `IN_PROGRESS`  
 > 기준 API: `API_SPEC.md 1.0.0`  
-> 최종 수정일: `2026-07-16`
+> 최종 수정일: `2026-07-17`
 
 이 문서는 확정된 API 계약과 비즈니스 규칙을 MySQL 관계형 데이터 구조로 옮기는 Stage 2 설계 원본입니다. 테이블부터 임의로 만들지 않고 도메인 용어, 상태와 불변식을 먼저 정의한 뒤 물리 컬럼과 인덱스를 결정합니다.
 
@@ -10,7 +10,7 @@
 
 1. 도메인 용어와 소유 관계 정의
 2. Entity와 Value Object 후보 구분
-3. 인증 세션 저장 구조 결정
+3. 인증 토큰 저장 구조 결정
 4. 후보 생성 세트와 단계별 후보 저장 구조 결정
 5. 논리 ERD 작성
 6. 물리 테이블·컬럼·타입 작성
@@ -24,8 +24,7 @@
 | 용어 | 의미 | 소유·생명주기 |
 | --- | --- | --- |
 | User | 이메일과 비밀번호로 로그인하는 사용자 | 여러 Brand를 소유 |
-| Login Session | 한 사용자의 현재 활성 로그인과 `sid` | User당 하나의 활성 세션 |
-| Refresh Token | Access Token 재발급용 회전 토큰 | Login Session에 종속 |
+| Refresh Token | Access Token 재발급용 Opaque Token | User에 현재 토큰 해시와 만료시각만 저장 |
 | Brand | 진단부터 최종 로고까지 이어지는 브랜드 컨설팅 작업 | User에 종속, 영구 삭제 가능 |
 | Diagnosis | 사용자의 진단 원본 답변과 Fake 처리 결과 | Brand당 정확히 하나 |
 | Stage | `NAMING`, `CONCEPT`, `STORY`, `LOGO`, `FINAL` 진행 위치 | Brand가 현재 위치를 보유 |
@@ -59,7 +58,7 @@
 
 1. Brand는 반드시 한 명의 User에게 속합니다.
 2. 유효한 Brand에는 Diagnosis가 정확히 하나 존재합니다.
-3. 한 User에는 현재 활성 Login Session이 최대 하나만 존재합니다.
+3. 한 User에는 현재 Refresh Token 해시가 최대 하나만 존재합니다.
 4. 단계별 Candidate Generation은 최초 생성을 포함해 최대 3개입니다.
 5. `ACTIVE` Candidate Generation에는 후보가 정확히 3개 존재합니다.
 6. 한 Brand·Stage에서 선택 결과는 최대 하나입니다.
@@ -77,8 +76,8 @@
 ### 인증 영역
 
 - `User`
-- `LoginSession`
-- Refresh Token 회전 이력 저장 구조는 별도 테이블 여부를 검토합니다.
+
+별도 LoginSession과 RefreshToken Entity는 만들지 않습니다. User에 `refresh_token_hash VARCHAR(64) NULL UNIQUE`와 `refresh_token_expires_at DATETIME(6) NULL`을 두고 두 컬럼이 함께 NULL이거나 함께 존재하도록 CHECK 제약을 적용합니다. 로그인·재발급 시 값을 교체하며 로그아웃 시 제거합니다. Access Token은 DB 세션 조회 없이 서명과 만료시간으로 검증하므로 즉시 무효화하지 않습니다.
 
 ### 브랜드 영역
 
@@ -110,7 +109,6 @@
 - 시간 저장 기준과 `DATETIME(6)` 사용 여부
 - Enum을 MySQL ENUM 또는 `VARCHAR`로 저장할지 여부
 - 후보 선택을 Brand FK 컬럼으로 둘지 별도 Selection 테이블로 둘지 여부
-- Refresh Token 회전·재사용 탐지를 위한 이력 테이블 구조
 - 낙관적 락용 `version` 컬럼 위치
 - 영구 삭제 시 DB Cascade와 애플리케이션 삭제 책임 분담
 - 주요 복합 인덱스

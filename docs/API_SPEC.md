@@ -1,8 +1,8 @@
 # BrandPilot Backend API Specification
 
 > 상태: `STAGE_1_COMPLETE`  
-> 버전: `1.1.0`  
-> 최종 수정일: `2026-07-16`
+> 버전: `1.2.0`
+> 최종 수정일: `2026-07-17`
 
 이 문서는 BrandPilot Backend Rebuild의 REST API 설계 원본입니다. 구현 전에 API 계약을 정의하고, 구현 이후에는 Swagger/OpenAPI 및 테스트 결과와 일치하도록 관리합니다.
 
@@ -139,9 +139,9 @@ Authorization: Bearer {accessToken}
 - Refresh Token은 예측 불가능한 Opaque Token으로 발급합니다.
 - Refresh Token은 HttpOnly Cookie로 전달하고 사용할 때마다 회전합니다.
 - 운영 Cookie에는 `Secure`, `HttpOnly`, `SameSite=Strict`를 적용합니다.
-- 한 사용자에게 하나의 활성 로그인 세션만 허용합니다.
-- 새 로그인 성공 시 기존 로그인 세션을 폐기하고 새 로그인으로 대체합니다.
-- Access Token의 `sid`를 DB의 활성 Session ID와 비교해 기존 로그인을 즉시 무효화합니다.
+- 한 사용자에게 현재 Refresh Token 해시 하나만 저장합니다.
+- 새 로그인이나 재발급 성공 시 기존 Refresh Token 해시를 새 값으로 교체합니다.
+- Access Token은 서버 세션을 조회하지 않고 서명과 만료시간으로 검증하며, 로그아웃 후에도 남은 유효시간 동안 사용할 수 있습니다.
 
 ### 4.4 시간 형식
 
@@ -437,18 +437,17 @@ Access Token은 JSON 본문으로 반환하고 Refresh Token은 Cookie로만 전
 
 - 로그인이라는 동작명 대신 인증 토큰 리소스를 생성한다는 의미로 `POST /auth/tokens`를 사용합니다.
 - 로그인 성공은 사용자 리소스 생성이 아니라 인증 정보 발급이므로 `200 OK`를 사용합니다.
-- 한 사용자에게 하나의 활성 로그인만 허용합니다.
-- 새 로그인 성공 시 기존 로그인 세션을 폐기하고 새 로그인으로 대체합니다.
-- Access Token의 `sid`와 DB의 활성 Session ID를 비교해 기존 Access Token을 즉시 무효화합니다.
+- 한 사용자에게 현재 Refresh Token 하나만 허용합니다.
+- 새 로그인 성공 시 저장된 Refresh Token 해시를 교체해 기존 Refresh Token을 무효화합니다.
+- 기존 Access Token은 즉시 폐기하지 않고 15분 만료시간까지 유효합니다.
 
 #### 구현 단계에서 다시 학습할 내용
 
 - JWT Header, Payload, Signature
 - Spring Security Filter Chain
 - Access Token 생성과 검증
-- `sid` Claim과 활성 로그인 세션 조회
 - Refresh Token 원문·해시 비교
-- Refresh Token Rotation과 재사용 탐지
+- Refresh Token Rotation
 - 로그인·재발급 동시 요청 처리
 - 인증 실패와 인가 실패 구분
 
@@ -503,16 +502,13 @@ Set-Cookie: refreshToken={newToken}; Max-Age=1209600; HttpOnly; Secure; SameSite
 | `401` | `REFRESH_TOKEN_REQUIRED` | Refresh Token Cookie 없음 |
 | `401` | `INVALID_REFRESH_TOKEN` | 토큰 형식 또는 해시 불일치 |
 | `401` | `EXPIRED_REFRESH_TOKEN` | Refresh Token 만료 |
-| `401` | `REVOKED_REFRESH_TOKEN` | 로그아웃 등으로 이미 폐기됨 |
-| `401` | `REUSED_REFRESH_TOKEN` | 회전되어 이미 사용된 토큰 재사용 탐지 |
 
 #### 비즈니스 규칙
 
 - Refresh Token 원문을 해시하여 저장된 값과 비교합니다.
-- 유효한 Refresh Token은 한 번 사용한 즉시 폐기합니다.
-- 새로운 Access Token과 Refresh Token을 함께 발급합니다.
-- 이미 사용된 Refresh Token이 다시 제출되면 재사용으로 처리합니다.
-- 재사용 탐지 시 같은 로그인 계열의 토큰을 모두 폐기하는 정책을 적용할 수 있으며, 정확한 범위는 ERD·동시성 설계에서 확정합니다.
+- 유효한 Refresh Token을 사용하면 새로운 Access Token과 Refresh Token을 함께 발급합니다.
+- 새 Refresh Token 해시로 기존 값을 덮어써 이전 Refresh Token을 무효화합니다.
+- 이력을 보존하지 않으므로 이전 토큰 제출은 별도 재사용 오류가 아닌 `INVALID_REFRESH_TOKEN`으로 처리합니다.
 
 ### 8.5 로그아웃
 
@@ -548,8 +544,8 @@ Clear-Site-Data: "cache"
 - 서버에 저장된 현재 Refresh Token을 폐기합니다.
 - 브라우저의 Refresh Token Cookie를 만료시킵니다.
 - Cookie가 없거나 이미 폐기됐더라도 `204 No Content`를 반환해 반복 호출을 허용합니다.
-- 유효한 Refresh Token으로 활성 로그인 세션을 폐기하면, 같은 `sid`를 가진 Access Token도 다음 요청부터 거부됩니다.
-- Cookie가 없어 서버에서 폐기할 로그인 세션을 식별할 수 없는 경우에는 클라이언트 Cookie만 정리하고 `204 No Content`를 반환합니다.
+- 로그아웃 전에 발급된 Access Token은 즉시 무효화하지 않으며 최대 15분의 남은 유효시간까지 사용할 수 있습니다.
+- Cookie가 없어 서버에서 폐기할 Refresh Token을 식별할 수 없는 경우에는 클라이언트 Cookie만 정리하고 `204 No Content`를 반환합니다.
 
 ### 8.6 진단 제출과 브랜드 생성
 
@@ -644,7 +640,6 @@ Location: /api/v1/brands/1
 | `400` | `VALIDATION_FAILED` | 진단 답변 누락 또는 필드 검증 실패 |
 | `401` | `AUTHENTICATION_REQUIRED` | Access Token 없음 |
 | `401` | `INVALID_TOKEN` | Access Token 검증 실패 |
-| `401` | `LOGIN_SESSION_REVOKED` | 현재 활성 로그인이 아님 |
 | `500` | `DIAGNOSIS_PROCESSING_FAILED` | 진단 처리 중 예상하지 못한 오류 |
 
 #### 비즈니스 규칙
@@ -731,7 +726,6 @@ Cache-Control: private, no-store
 | ---: | --- | --- |
 | `401` | `AUTHENTICATION_REQUIRED` | Access Token 없음 |
 | `401` | `INVALID_TOKEN` | Access Token 검증 실패 |
-| `401` | `LOGIN_SESSION_REVOKED` | 현재 활성 로그인이 아님 |
 | `403` | `BRAND_ACCESS_DENIED` | 브랜드 소유자가 아님 |
 | `404` | `BRAND_NOT_FOUND` | 브랜드가 존재하지 않음 |
 | `404` | `DIAGNOSIS_NOT_FOUND` | 브랜드의 진단 데이터가 존재하지 않음 |
@@ -1545,7 +1539,6 @@ HTTP/1.1 200 OK
 | `400` | `VALIDATION_FAILED` | 페이지 크기 또는 상태 필터가 올바르지 않음 |
 | `401` | `AUTHENTICATION_REQUIRED` | Access Token 없음 |
 | `401` | `INVALID_TOKEN` | Access Token 검증 실패 |
-| `401` | `LOGIN_SESSION_REVOKED` | 현재 활성 로그인이 아님 |
 
 ### 8.17 브랜드 상세와 진행 상태 조회
 
@@ -1627,7 +1620,6 @@ HTTP/1.1 200 OK
 | ---: | --- | --- |
 | `401` | `AUTHENTICATION_REQUIRED` | Access Token 없음 |
 | `401` | `INVALID_TOKEN` | Access Token 검증 실패 |
-| `401` | `LOGIN_SESSION_REVOKED` | 현재 활성 로그인이 아님 |
 | `403` | `BRAND_ACCESS_DENIED` | 브랜드 소유자가 아님 |
 | `404` | `BRAND_NOT_FOUND` | 브랜드가 존재하지 않음 |
 
@@ -1746,7 +1738,6 @@ GET /api/v1/brands/1/naming
 | ---: | --- | --- |
 | `401` | `AUTHENTICATION_REQUIRED` | Access Token 없음 |
 | `401` | `INVALID_TOKEN` | Access Token 검증 실패 |
-| `401` | `LOGIN_SESSION_REVOKED` | 현재 활성 로그인이 아님 |
 | `403` | `BRAND_ACCESS_DENIED` | 브랜드 소유자가 아님 |
 | `404` | `BRAND_NOT_FOUND` | 브랜드가 존재하지 않음 |
 | `409` | `BRAND_STEP_CONFLICT` | 아직 접근할 수 없는 미래 단계 조회 |
@@ -1851,7 +1842,6 @@ Cache-Control: private, no-store
 | ---: | --- | --- |
 | `401` | `AUTHENTICATION_REQUIRED` | Access Token 없음 |
 | `401` | `INVALID_TOKEN` | Access Token 검증 실패 |
-| `401` | `LOGIN_SESSION_REVOKED` | 현재 활성 로그인이 아님 |
 | `403` | `BRAND_ACCESS_DENIED` | 브랜드 소유자가 아님 |
 | `404` | `BRAND_NOT_FOUND` | 브랜드가 존재하지 않음 |
 | `409` | `BRAND_NOT_COMPLETED` | 아직 최종 완료되지 않은 브랜드 |
@@ -1931,7 +1921,6 @@ DB 트랜잭션은 로컬 파일 시스템을 롤백할 수 없으므로 다음 
 | ---: | --- | --- |
 | `401` | `AUTHENTICATION_REQUIRED` | Access Token 없음 |
 | `401` | `INVALID_TOKEN` | Access Token 검증 실패 |
-| `401` | `LOGIN_SESSION_REVOKED` | 현재 활성 로그인이 아님 |
 | `403` | `BRAND_ACCESS_DENIED` | 브랜드 소유자가 아님 |
 | `404` | `BRAND_NOT_FOUND` | 브랜드가 존재하지 않거나 이미 삭제됨 |
 | `500` | `FILE_DELETE_FAILED` | 로고 파일을 삭제 준비 상태로 옮기지 못함 |
@@ -1966,9 +1955,6 @@ DB 트랜잭션은 로컬 파일 시스템을 롤백할 수 없으므로 다음 
 | `REFRESH_TOKEN_REQUIRED` | 401 | Refresh Token Cookie 없음 |
 | `INVALID_REFRESH_TOKEN` | 401 | Refresh Token 검증 실패 |
 | `EXPIRED_REFRESH_TOKEN` | 401 | Refresh Token 만료 |
-| `REVOKED_REFRESH_TOKEN` | 401 | 폐기된 Refresh Token |
-| `REUSED_REFRESH_TOKEN` | 401 | 회전 후 폐기된 Refresh Token 재사용 |
-| `LOGIN_SESSION_REVOKED` | 401 | 현재 활성 로그인이 아닌 세션의 Access Token |
 | `ACCESS_DENIED` | 403 | 접근 권한 없음 |
 | `USER_NOT_FOUND` | 404 | 사용자를 찾을 수 없음 |
 
@@ -2012,9 +1998,9 @@ DB 트랜잭션은 로컬 파일 시스템을 롤백할 수 없으므로 다음 
 - [x] Access Token 15분, Refresh Token 14일로 만료시간 확정
 - [x] Refresh Token을 HttpOnly Cookie로 전달하고 서버에는 해시 저장
 - [x] Refresh Token 사용 시 회전하고 로그아웃 시 폐기
-- [x] 한 사용자당 하나의 활성 로그인만 허용
-- [x] 새 로그인 성공 시 기존 로그인을 폐기하고 새 로그인으로 대체
-- [x] Access Token의 `sid`를 활성 Session ID와 비교해 기존 로그인을 즉시 무효화
+- [x] 한 사용자당 현재 Refresh Token 해시 하나만 저장
+- [x] 새 로그인·재발급 시 기존 Refresh Token 해시를 교체
+- [x] Access Token 즉시 무효화와 Refresh Token 재사용 탐지는 현재 범위에서 제외
 - [x] Base URL에 `/api/v1` 사용
 - [x] 진단 제출 성공 시 브랜드를 생성하도록 결정
 - [x] 공개 API 입력은 `Map<String, Object>`가 아닌 고정 Request DTO 사용
@@ -2060,3 +2046,4 @@ DB 트랜잭션은 로컬 파일 시스템을 롤백할 수 없으므로 다음 
 | `0.25.0` | 2026-07-16 | 회원가입·로그인을 제외한 사용자 부가기능을 범위에서 제외 |
 | `1.0.0` | 2026-07-16 | 최종 일관성 점검, 회원가입 Location 제거 및 Stage 1 API 계약 완료 |
 | `1.1.0` | 2026-07-16 | 재생성·선택 후 불필요한 후보와 로고 파일을 삭제하는 보관 정책 반영 |
+| `1.2.0` | 2026-07-17 | Access Token 즉시 무효화와 토큰 재사용 탐지를 제외하고 사용자별 현재 Refresh Token 해시만 저장하도록 인증 범위 단순화 |
