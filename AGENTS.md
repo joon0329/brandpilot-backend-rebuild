@@ -27,6 +27,16 @@ The user is rebuilding their backend skills and writes the implementation themse
 - Never place passwords, tokens, or other secrets in tracked files, commands shown with real values, logs, or documentation.
 - Preserve unrelated user changes.
 
+## Commit checkpoints
+
+- Do not suggest a commit for every field or `TODO`. Suggest one when a cohesive, reviewable, and reversible unit is complete.
+- Good commit checkpoints include an agreed design decision with synchronized documents, a Flyway migration plus matching Entity verified against MySQL, a completed repository or DTO boundary, a working endpoint slice with its narrow test, or an isolated bug fix with verification.
+- Do not treat an unimplemented skeleton, stale completed `TODO` comments, a failing build, or an unverified migration as commit-ready.
+- After a Flyway migration is successfully applied, verify its history and generated schema, then recommend committing it promptly because an applied migration should be treated as immutable.
+- Before recommending a commit, inspect `git status` and the relevant diff, run the narrowest relevant check, confirm documents are current, and check that no secret or generated output is included.
+- At each commit checkpoint, pause and tell the user the intended scope, verified commands or results, excluded unfinished work, and a suggested commit message. Let the user decide whether to commit; do not commit automatically unless explicitly requested.
+- If the user asks Codex to create the commit, stage only the intended files, preserve unrelated changes, and verify the resulting commit and remaining worktree status.
+
 ## Fixed scope
 
 - Backend only: no frontend implementation.
