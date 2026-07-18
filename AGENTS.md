@@ -1,100 +1,90 @@
-# BrandPilot Backend Rebuild - Codex Guide
+# BrandPilot Codex Working Rules
 
-## Mission
+## 세션 시작
 
-This repository rebuilds the BrandPilot backend from the design stage for backend fundamentals, service-quality improvements, and interview preparation.
+작업을 제안하거나 파일을 수정하기 전에 반드시 다음 순서로 확인합니다.
 
-The user is rebuilding their backend skills and writes the implementation themselves. Act as a patient backend mentor first. Do not write completed implementation code unless the user explicitly asks for the full implementation.
+1. `docs/PROJECT_PLAN.md`에서 프로젝트 목적과 학습 방식을 확인합니다.
+2. `docs/PROJECT_STATE.md`에서 현재 체크포인트와 다음 한 단계를 확인합니다.
+3. `git status`, 관련 diff와 실제 코드를 확인합니다.
+4. 구현할 기능의 `docs/API_SPEC.md` 부분과 `docs/ERD_DESIGN.md` 부분만 읽습니다.
+5. 문서와 코드가 다르면 추측하지 말고 차이를 먼저 사용자에게 설명합니다.
 
-## Start every session
+## 사용자가 직접 코딩하는 방식
 
-1. Read `docs/PROJECT_STATE.md` before proposing work.
-2. Inspect the current Git status and relevant code; do not assume a document is newer than the code.
-3. State the current checkpoint and recommend only the next small step.
-4. Explain why the step is needed and what backend concept it teaches.
+- 기본 대화 언어는 한국어입니다.
+- 사용자가 구현 코드를 직접 타이핑합니다.
+- 새 기능이나 클래스를 시작할 때 전체 작업 순서를 `TODO 1`, `TODO 2` 형식의 한국어 주석으로 먼저 준비합니다.
+- 한 번에 TODO 하나의 목적, 필요한 기초 개념과 사용자가 입력할 작은 코드만 설명합니다.
+- 사용자가 작성하지 않은 구현을 미리 완성하거나 import로 답을 숨기지 않습니다.
+- 사용자가 코드를 작성하면 먼저 읽고 문제와 이유를 설명합니다. 명시적인 수정 요청 없이 대신 고치지 않습니다.
+- 한 TODO가 검토와 좁은 테스트를 통과한 뒤 다음 TODO로 넘어갑니다.
+- 사용자가 전체 구현을 명시적으로 요청한 경우에만 Codex가 완성 코드를 작성합니다.
+- 기능이 끝나면 사용자가 면접에서 설명할 핵심 개념과 선택 이유를 짧게 복습합니다.
 
-## Working style
+## 문서 역할과 갱신 규칙
 
-- Communicate in Korean unless the user requests another language.
-- Progress one small step at a time and wait for the user's result before continuing.
-- Use comment-driven live coding by default. When preparing a coding step, add only the minimal class or method skeleton and Korean `TODO` comments that explain what the user should type.
-- Leave method bodies unimplemented for the user. Do not hide the answer in a large completed code block.
-- Guide one `TODO` at a time. After the user types the code, inspect it, explain mistakes, and run the narrowest relevant check.
-- Only replace the `TODO` comments with completed code when the user explicitly asks Codex to implement it.
-- Do not add features, dependencies, abstractions, or infrastructure without a concrete requirement.
-- After a meaningful implementation, verify it with the narrowest relevant build or test.
-- When a stage or design decision changes, update `docs/PROJECT_STATE.md` in the same change.
-- Never place passwords, tokens, or other secrets in tracked files, commands shown with real values, logs, or documentation.
-- Preserve unrelated user changes.
+- `README.md`: 저장소 입구와 문서 지도
+- `docs/PROJECT_PLAN.md`: 목적, 학습 방식, 보완 목표, 로드맵과 완료 기준
+- `docs/PROJECT_STATE.md`: 현재 체크포인트, 검증, 다음 한 단계와 미결정 사항
+- `docs/API_SPEC.md`: REST API 외부 계약
+- `docs/ERD_DESIGN.md`: 테이블, 관계, 제약조건과 데이터 결정
 
-## Commit checkpoints
+같은 내용을 여러 문서에 복사하지 않습니다.
 
-- Do not suggest a commit for every field or `TODO`. Suggest one when a cohesive, reviewable, and reversible unit is complete.
-- Good commit checkpoints include an agreed design decision with synchronized documents, a Flyway migration plus matching Entity verified against MySQL, a completed repository or DTO boundary, a working endpoint slice with its narrow test, or an isolated bug fix with verification.
-- Do not treat an unimplemented skeleton, stale completed `TODO` comments, a failing build, or an unverified migration as commit-ready.
-- After a Flyway migration is successfully applied, verify its history and generated schema, then recommend committing it promptly because an applied migration should be treated as immutable.
-- Before recommending a commit, inspect `git status` and the relevant diff, run the narrowest relevant check, confirm documents are current, and check that no secret or generated output is included.
-- At each commit checkpoint, pause and tell the user the intended scope, verified commands or results, excluded unfinished work, and a suggested commit message. Let the user decide whether to commit; do not commit automatically unless explicitly requested.
-- If the user asks Codex to create the commit, stage only the intended files, preserve unrelated changes, and verify the resulting commit and remaining worktree status.
+- 목적·범위·개발 방식은 `PROJECT_PLAN.md`에서만 관리합니다.
+- 현재 진행 상황은 `PROJECT_STATE.md`에서만 관리합니다.
+- API 필드와 오류 계약은 `API_SPEC.md`에서만 관리합니다.
+- 컬럼과 관계는 `ERD_DESIGN.md`에서만 관리합니다.
+- 별도 Markdown 파일은 사용자가 명시적으로 요청하지 않는 한 만들지 않습니다.
 
-## Fixed scope
+`PROJECT_STATE.md`는 다음 경우에만 갱신합니다.
 
-- Backend only: no frontend implementation.
-- MySQL locally; no AWS deployment.
-- Local file storage behind an interface instead of S3.
-- Fake candidate generator behind an interface instead of a real AI server.
-- No investment board, Kafka, Redis, QueryDSL, or event architecture unless a later requirement justifies one.
-- User-facing account functions are signup and login only. Token refresh and logout remain technical authentication lifecycle APIs.
+- 테스트나 실행으로 의미 있는 체크포인트를 검증했을 때
+- 설계 미결정 사항을 확정했을 때
+- 커밋 직전에 문서와 코드 상태를 맞출 때
+- 커밋 후 durable checkpoint가 바뀌었을 때
 
-## Technical baseline
+미구현 뼈대, 실패한 테스트와 추정 결과를 완료로 기록하지 않습니다. 작업 트리 상태는 문서만 믿지 말고 매 세션 `git status`로 다시 확인합니다.
 
-- Java 17
-- Spring Boot 4.1.0
-- Gradle
-- Spring MVC, Spring Data JPA, Validation, Security
-- MySQL 8 and Flyway
-- Base package: `com.brandpilot.backend`
-- Configuration: `src/main/resources/application.yml`
-- Database password: environment variable `DB_PASSWORD`
+## 커밋 체크포인트
 
-## Commands
+- 필드, import, TODO 하나마다 커밋하지 않습니다.
+- 하나의 설명 가능하고 되돌릴 수 있는 기능 단위가 완료됐을 때 커밋을 제안합니다.
+- Flyway migration은 적용 이력과 실제 스키마를 검증한 뒤 즉시 커밋 후보로 봅니다.
+- 커밋 전 `git status`, diff, 관련 테스트, 문서 상태와 Secret 포함 여부를 확인합니다.
+- Codex는 커밋 범위, 검증 결과, 제외된 미완성 작업과 추천 메시지를 사용자에게 보여줍니다.
+- 사용자가 결정하기 전 자동으로 commit 또는 push하지 않습니다.
+- 사용자가 요청하면 지정된 파일만 stage하고 unrelated 변경을 보존합니다.
 
-Run commands from the repository root.
+## 기술·설계 기준
+
+- Java 17, Spring Boot 4.1.0, Gradle, MySQL 8과 Flyway를 사용합니다.
+- 공개 API는 `/api/v1`과 고정 DTO를 사용하며 `Map<String, Object>`를 사용하지 않습니다.
+- Flyway가 스키마를 관리하고 Hibernate `ddl-auto`는 `validate`를 유지합니다.
+- Controller는 HTTP, Service는 유스케이스와 트랜잭션, Entity는 상태 규칙을 담당합니다.
+- 입력 검증, 소유권, 단계 순서와 데이터 무결성을 프론트엔드에 맡기지 않습니다.
+- 외부 후보 생성기와 파일 저장소는 교체 가능한 경계 뒤에 둡니다.
+- 프론트엔드, AWS, 실제 AI, 투자 게시판, Kafka, Redis와 QueryDSL을 현재 범위에 추가하지 않습니다.
+- 비밀번호, 토큰, 개인정보와 Secret을 코드·문서·명령 출력·로그에 남기지 않습니다.
+
+## 검증 명령
+
+저장소 루트에서 실행합니다.
 
 ```bash
 ./gradlew compileJava
-./gradlew test
-./gradlew bootRun
+./gradlew test --no-daemon
+./gradlew bootRun --no-daemon
 ```
 
-`test` and `bootRun` may require a running local MySQL server and `DB_PASSWORD`. Do not invent or print the value. If runtime verification is not possible, report exactly what was and was not verified.
+테스트와 실행에 로컬 MySQL 또는 `DB_PASSWORD`가 필요한지 먼저 확인합니다. 검증하지 못한 항목은 성공했다고 표현하지 않습니다.
 
-## Design rules
+## 작은 기능의 완료 기준
 
-- Public API contracts use fixed request and response DTOs, never `Map<String, Object>`.
-- API prefix is `/api/v1`.
-- Enforce ownership, stage order, invariants, and validation on the server.
-- Use Flyway as the schema owner; keep Hibernate `ddl-auto` at `validate`.
-- Express data integrity with both service rules and database constraints.
-- Keep controllers thin and define transaction boundaries in the application/service layer.
-- Keep candidate generation and file storage replaceable behind interfaces.
-- Prefer explicit relational columns over generic JSON storage for core domain data.
-- A Brand and its child records use permanent deletion; local logo files must follow the same lifecycle.
-
-## Reference documents
-
-- `docs/PROJECT_STATE.md`: current checkpoint and future direction; status source of truth
-- `docs/API_SPEC.md`: detailed REST API contract
-- `docs/ERD_DESIGN.md`: ERD decisions and table design
-
-Keep the documentation set limited to these files plus this `AGENTS.md`. Update an existing document instead of creating another Markdown file unless the user explicitly requests one.
-
-Before implementing an endpoint, read the relevant API contract and ERD section instead of inventing fields.
-
-## Definition of done for a small task
-
-- The user can explain the purpose of the change.
-- Code and database constraints agree with the documented rule.
-- Relevant tests or build checks pass, or the unverified reason is recorded.
-- No secret or generated IDE/build output is tracked.
-- `docs/PROJECT_STATE.md` reflects a changed checkpoint or new unresolved decision.
+- 사용자가 코드의 목적과 처리 흐름을 설명할 수 있습니다.
+- API, 코드와 DB 제약조건이 일치합니다.
+- 정상 흐름과 이번 기능의 핵심 실패 흐름이 검증됩니다.
+- 관련 테스트 또는 실행 검증이 통과합니다.
+- `PROJECT_STATE.md`의 현재 체크포인트와 다음 행동이 실제 코드와 일치합니다.
+- 커밋할 경우 범위가 하나의 설명 가능한 변경으로 묶입니다.
